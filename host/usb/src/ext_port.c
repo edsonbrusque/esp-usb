@@ -1108,7 +1108,7 @@ static esp_err_t port_gone(void *port_hdl)
              ext_port->dev_state);
 
     bool has_device = false;
-    // A device already reported disconnected, by handle_disable() or
+    // A device already reported disconnected, by handle_disable(), handle_port_state() or
     // handle_port_connection(), but not yet recycled: its recycle still comes through the
     // parent Hub, so this port must outlive it, whatever its state. The recycle calls this
     // function again, with is_gone set, and that call lets the port be freed. A port whose
