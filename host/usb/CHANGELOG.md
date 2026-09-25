@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Fixed an assertion in `device_release()` when an external Hub is disconnected while one of its control transfers is in flight
+- Fixed a use-after-free of an external Hub disconnected while a device on one of its disabled ports is still waiting to be recycled
 
 ## [1.5.0] - 2026-06-16
 
