@@ -1102,7 +1102,10 @@ static esp_err_t port_gone(void *port_hdl)
     // handle_port_connection(), but not yet recycled: its recycle still comes through the
     // parent Hub, so this port must outlive it, whatever its state. The recycle calls this
     // function again, with is_gone set, and that call lets the port be freed.
-    const bool awaiting_recycle = ext_port->flags.waiting_recycle && !ext_port->flags.is_gone;
+    // A port disabled before its device enumerated may have no USBH device to recycle,
+    // when the Hub Driver could not add one, so, as the DISABLED status handling does,
+    // only an enumerated device counts.
+    const bool awaiting_recycle = ext_port->flags.waiting_recycle && ext_port->flags.has_enum_device && !ext_port->flags.is_gone;
 
     ext_port->flags.is_gone = 1;
     ext_port->flags.waiting_free = 1;
