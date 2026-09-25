@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Fixed an assertion in `device_release()` when an external Hub is disconnected while one of its control transfers is in flight
 - Fixed a use-after-free of an external Hub disconnected while a device on one of its ports is still waiting to be recycled
+- Fixed an abort when the root port is powered off while its disconnected device is still being freed, and when it is powered off with a port event not yet handled
 
 ## [1.5.0] - 2026-06-16
 

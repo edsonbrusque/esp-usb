@@ -886,6 +886,7 @@ fail:
 esp_err_t hub_root_stop(void)
 {
     bool needs_power_off[HCD_NUM_PORTS] = {0};
+    root_port_state_t prev_state[HCD_NUM_PORTS] = {0};
     HUB_DRIVER_ENTER_CRITICAL();
     HUB_DRIVER_CHECK_FROM_CRIT(p_hub_driver_obj != NULL, ESP_ERR_INVALID_STATE);
     bool all_stopped = true;
@@ -896,6 +897,7 @@ esp_err_t hub_root_stop(void)
         if (p_hub_driver_obj->root_hub_ports[i].dynamic.state != ROOT_PORT_STATE_NOT_POWERED) {
             all_stopped = false;
             needs_power_off[i] = true;
+            prev_state[i] = p_hub_driver_obj->root_hub_ports[i].dynamic.state;
             p_hub_driver_obj->root_hub_ports[i].dynamic.state = ROOT_PORT_STATE_NOT_POWERED;
         }
     }
@@ -906,15 +908,27 @@ esp_err_t hub_root_stop(void)
     }
     HUB_DRIVER_EXIT_CRITICAL();
 
-    // HCD_PORT_CMD_POWER_OFF will only fail if the port is already powered_off or if HW fails to enable clock for the port (if stopping suspended port).
-    // This should never happen, so we assert ret == ESP_OK
     for (int i = 0; i < HCD_NUM_PORTS; i++) {
         hcd_port_handle_t root_port_hdl = p_hub_driver_obj->root_hub_ports[i].constant.hdl;
         if (root_port_hdl == NULL || !needs_power_off[i]) {
             continue;
         }
+        // A port in recovery has lost its device already. Once the device is freed, its
+        // recycle recovers the port, which leaves it not powered, as its state now says.
+        // Powering it off here would take it out of recovery before then, and the
+        // recycle would find it in a state root_port_recycle() aborts on.
+        if (hcd_port_get_state(root_port_hdl) == HCD_PORT_STATE_RECOVERY) {
+            continue;
+        }
+        // The HCD refuses commands while a port event waits to be handled, such as a
+        // device connecting just now. Leave the port as it was, for the caller to retry.
         const esp_err_t ret = hcd_port_command(root_port_hdl, HCD_PORT_CMD_POWER_OFF);
-        assert(ret == ESP_OK);
+        if (ret != ESP_OK) {
+            HUB_DRIVER_ENTER_CRITICAL();
+            p_hub_driver_obj->root_hub_ports[i].dynamic.state = prev_state[i];
+            HUB_DRIVER_EXIT_CRITICAL();
+            return ret;
+        }
     }
     return ESP_OK;
 }
