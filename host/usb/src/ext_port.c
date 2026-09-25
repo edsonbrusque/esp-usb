@@ -1098,8 +1098,9 @@ static esp_err_t port_gone(void *port_hdl)
              ext_port->dev_state);
 
     bool has_device = false;
-    // A device disconnected by handle_disable() but not yet recycled: its recycle still
-    // comes through the parent Hub, so this port must outlive it. The recycle calls this
+    // A device already reported disconnected, by handle_disable() or
+    // handle_port_connection(), but not yet recycled: its recycle still comes through the
+    // parent Hub, so this port must outlive it, whatever its state. The recycle calls this
     // function again, with is_gone set, and that call lets the port be freed.
     const bool awaiting_recycle = ext_port->flags.waiting_recycle && !ext_port->flags.is_gone;
 
@@ -1116,8 +1117,6 @@ static esp_err_t port_gone(void *port_hdl)
             ext_port->flags.waiting_recycle = 1;
             port_event(ext_port, EXT_PORT_DISCONNECTED);
             has_device = true;
-        } else if (awaiting_recycle) {
-            has_device = true;
         }
         break;
     case USB_PORT_STATE_NOT_CONFIGURED:
@@ -1131,6 +1130,9 @@ static esp_err_t port_gone(void *port_hdl)
         // Should never occur
         abort();
         break;
+    }
+    if (awaiting_recycle) {
+        has_device = true;
     }
 
     // If the port is in handling list, stop it
